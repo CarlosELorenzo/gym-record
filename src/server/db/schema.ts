@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  decimal,
   index,
   int,
   mysqlTableCreator,
@@ -22,18 +23,128 @@ export const mysqlTable = mysqlTableCreator((name) => `gym-record_${name}`);
 export const posts = mysqlTable(
   "post",
   {
-    id: bigint("id", { mode: "number" }).primaryKey().autoincrement(),
+    id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
     name: varchar("name", { length: 256 }),
-    createdById: varchar("createdById", { length: 255 }).notNull(),
+    createdById: varchar("created_by_id", { length: 256 }),
     createdAt: timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
     updatedAt: timestamp("updatedAt").onUpdateNow(),
   },
-  (example) => ({
-    createdByIdIdx: index("createdById_idx").on(example.createdById),
-    nameIndex: index("name_idx").on(example.name),
-  })
+  (posts) => ({
+    createByIdIdx: index("createdById_idx").on(posts.createdById),
+    nameIndex: index("name_idx").on(posts.name),
+  }),
+);
+// export const series = mysqlTable(
+//   "serie",
+//   {
+//     id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
+//     name: varchar("name", { length: 256 }),
+//     wheigt: decimal("wheigt").notNull(),
+//     reps: decimal("reps").notNull(),
+//     createdAt: timestamp("created_at")
+//       .default(sql`CURRENT_TIMESTAMP`)
+//       .notNull(),
+//     updatedAt: timestamp("updatedAt").onUpdateNow(),
+//   },
+//   (series) => ({
+//     nameIndex: index("name_idx").on(series.name),
+//   }),
+// );
+
+// export const exercise = mysqlTable(
+//   "exercise",
+//   {
+//     id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
+//     name: varchar("name", { length: 256 }),
+//     createdAt: timestamp("created_at")
+//       .default(sql`CURRENT_TIMESTAMP`)
+//       .notNull(),
+//     updatedAt: timestamp("updatedAt").onUpdateNow(),
+//   },
+//   (exercise) => ({
+//     nameIndex: index("name_idx").on(exercise.name),
+//   }),
+// );
+
+/**
+ * User:
+
+UserID (Primary Key)
+FirstName
+LastName
+Email
+Password
+(Other relevant user details)
+Exercise:
+
+ExerciseID (Primary Key)
+Name
+Description
+Category (e.g., cardio, strength, flexibility)
+(Other relevant exercise details)
+Workout:
+
+WorkoutID (Primary Key)
+UserID (Foreign Key referencing User.UserID)
+Date
+Duration
+(Other relevant workout details)
+WorkoutExercise:
+
+WorkoutExerciseID (Primary Key)
+WorkoutID (Foreign Key referencing Workout.WorkoutID)
+ExerciseID (Foreign Key referencing Exercise.ExerciseID)
+Sets
+Repetitions
+Weight (if applicable)
+(Other relevant details for tracking exercise performance)
+ */
+
+export const exercises = mysqlTable("exercise", {
+  id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
+  name: varchar("name", { length: 256 }),
+  description: varchar("description", { length: 256 }),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updatedAt").onUpdateNow(),
+});
+
+export const workouts = mysqlTable("workout", {
+  id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
+  userId: bigint("user_id", { mode: "number" }),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updatedAt").onUpdateNow(),
+});
+
+export const workoutExercises = mysqlTable("workout_exercise", {
+  id: bigint("id", { mode: "number" }).primaryKey().autoincrement().unique(),
+  workoutId: bigint("workout_id", { mode: "number" }),
+  exerciseId: bigint("exercise_id", { mode: "number" }),
+  reps: decimal("reps").notNull(),
+  weight: decimal("weight").notNull(),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updatedAt").onUpdateNow(),
+});
+
+export const workoutExercisesRelations = relations(
+  workoutExercises,
+  ({ one }) => ({
+    workout: one(workouts, {
+      fields: [workoutExercises.workoutId],
+      references: [workouts.id],
+    }),
+    exercise: one(exercises, {
+      fields: [workoutExercises.exerciseId],
+      references: [exercises.id],
+    }),
+  }),
 );
 
 export const users = mysqlTable("user", {
@@ -72,7 +183,7 @@ export const accounts = mysqlTable(
   (account) => ({
     compoundKey: primaryKey(account.provider, account.providerAccountId),
     userIdIdx: index("userId_idx").on(account.userId),
-  })
+  }),
 );
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -90,7 +201,7 @@ export const sessions = mysqlTable(
   },
   (session) => ({
     userIdIdx: index("userId_idx").on(session.userId),
-  })
+  }),
 );
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -106,5 +217,5 @@ export const verificationTokens = mysqlTable(
   },
   (vt) => ({
     compoundKey: primaryKey(vt.identifier, vt.token),
-  })
+  }),
 );
